@@ -5,7 +5,8 @@ struct ContentView: View {
     @StateObject private var healthManager = HealthKitManager()
 
     var body: some View {
-        VStack(spacing: 20) {
+        NavigationView {
+            VStack(spacing: 20) {
             Image(systemName: "heart.fill")
                 .resizable()
                 .scaledToFit()
@@ -20,6 +21,18 @@ struct ContentView: View {
                 Text("HealthKit Authorized ✅")
                     .foregroundColor(.green)
                     .font(.title3)
+                
+                NavigationLink(destination: WorkoutListView(healthManager: healthManager)) {
+                    Text("View Recent Workouts")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                }
+                .padding(.horizontal)
+
             } else {
                 Text("Permission Required")
                     .foregroundColor(.orange)
@@ -47,6 +60,7 @@ struct ContentView: View {
             }
         }
         .padding()
+        }
         .onAppear {
             healthManager.checkAuthorizationStatus()
         }
