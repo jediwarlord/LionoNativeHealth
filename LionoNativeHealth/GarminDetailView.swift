@@ -116,6 +116,9 @@ struct GarminDetailView: View {
             details = try await manager.getActivityDetails(id: activity.activityId)
             isLoading = false
         } catch {
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                return
+            }
             errorMessage = error.localizedDescription
             isLoading = false
         }
