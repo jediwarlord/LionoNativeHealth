@@ -12,6 +12,7 @@ services:
       - mongo
     volumes:
       - ./app:/app/app
+      - garmindb_data:/root/.GarminDb
 
   mongo:
     image: mongo:latest
@@ -22,3 +23,4 @@ services:
 
 volumes:
   mongodb_data:
+  garmindb_data:

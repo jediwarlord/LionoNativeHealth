@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from typing import List
 
 app = FastAPI(title="LionoNativeHealth API")
 
@@ -24,49 +25,38 @@ async def check_health():
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to LionoNativeHealth Backend"}
+    return {"message": "Welcome to LionoNativeHealth Backend (GarminDB Edition)"}
 
 # --- Garmin Routes ---
 from app.models import GarminLoginRequest, GarminLoginResponse, ActivitySyncRequest
 from app.garmin import garmin_service
 
-@app.post("/garmin/login", response_model=GarminLoginResponse)
-async def garmin_login(request: GarminLoginRequest):
-    success = garmin_service.login(request.email, request.password)
-    if success:
-        return GarminLoginResponse(success=True, message="Login successful", display_name=garmin_service.get_user_profile())
-    else:
-        return GarminLoginResponse(success=False, message="Invalid credentials")
+@app.post("/garmin/auth/status")
+async def garmin_auth_status():
+    """Checks if GarminDB is configured."""
+    is_configured = garmin_service.check_auth()
+    return {"configured": is_configured, "message": "GarminDB configured" if is_configured else "GarminDB not configured. Please run setup manually."}
 
 @app.post("/garmin/sync")
 async def garmin_sync(request: ActivitySyncRequest):
-    try:
-        activities = garmin_service.get_activities(limit=request.limit)
-        
-        # Save to MongoDB
-        if activities:
-            collection = app.mongodb["activities"]
-            for activity in activities:
-                # Use activityId as unique index to prevent duplicates
-                await collection.update_one(
-                    {"activityId": activity["activityId"]},
-                    {"$set": activity},
-                    upsert=True
-                )
-            
-        return {
-            "status": "success", 
-            "synced_count": len(activities),
-            "total_in_db": await app.mongodb["activities"].count_documents({})
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    """Triggers GarminDB sync."""
+    result = await garmin_service.sync_data()
+    return result
 
 @app.get("/garmin/activities")
-async def get_stored_activities():
-    activities = []
-    cursor = app.mongodb["activities"].find({}).sort("startTimeLocal", -1).limit(50)
-    async for document in cursor:
-        document["_id"] = str(document["_id"]) # Convert ObjectId to string
-        activities.append(document)
+async def get_stored_activities(limit: int = 50):
+    """
+    Retrieves activities directly from the GarminDB SQLite file.
+    """
+    activities = await garmin_service.get_activities(limit=limit)
     return activities
+
+@app.get("/garmin/activities/{activity_id}")
+async def get_activity_details(activity_id: str):
+    """
+    Retrieves detailed records (HR series) for an activity.
+    """
+    details = await garmin_service.get_activity_details(activity_id)
+    if not details or not details.get("records"):
+        raise HTTPException(status_code=404, detail="Activity details not found or no HR data")
+    return details

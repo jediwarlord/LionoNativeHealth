@@ -19,122 +19,51 @@ struct SourceAnalysisView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         
-                        // Summary Card
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Summary")
-                                .font(.headline)
-                            
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("Total Samples")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(totalSamples)")
-                                        .font(.title2)
-                                        .bold()
-                                }
-                                Spacer()
-                                VStack(alignment: .leading) {
-                                    Text("Sources")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(sourceData.count)")
-                                        .font(.title2)
-                                        .bold()
-                                }
+                        // Summary Cards
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 15) {
+                                SummaryCard(title: "Total Samples", value: "\(totalSamples)", icon: "waveform.path.ecg")
+                                SummaryCard(title: "Sources", value: "\(sourceData.count)", icon: "applewatch.watchface")
+                                SummaryCard(title: "Duration", value: formatDuration(workout.duration), icon: "timer")
                             }
+                            .padding(.horizontal)
                         }
-                        .padding()
-                        .background(Color(UIColor.secondarySystemBackground))
-                        .cornerRadius(12)
                         
                         Divider()
                         
-                        // comparison chart
-                        Text("Heart Rate Comparison")
-                            .font(.title2)
-                            .bold()
-                        
-                        Chart {
-                            ForEach(sourceData) { source in
-                                ForEach(source.samples, id: \.uuid) { sample in
+                        // Charts
+                        ForEach(sourceData) { source in
+                            VStack(alignment: .leading) {
+                                Text(source.displayName)
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                
+                                Chart(source.samples, id: \.uuid) { sample in
                                     LineMark(
                                         x: .value("Time", sample.startDate),
                                         y: .value("BPM", sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())))
                                     )
-                                    .foregroundStyle(by: .value("Source", source.displayName))
+                                    .foregroundStyle(.red)
                                     .interpolationMethod(.catmullRom)
                                 }
-                            }
-                        }
-                        .chartYScale(domain: .automatic(includesZero: false)) // Don't start at 0 for HR
-                        .frame(height: 250)
-                        
-                        Divider()
-                        
-                        Text("Device Breakdown")
-                            .font(.title2)
-                            .bold()
-                        
-                        Chart(sourceData) { data in
-                            BarMark(
-                                x: .value("Count", data.count),
-                                y: .value("Source", data.displayName)
-                            )
-                            .foregroundStyle(by: .value("Source", data.displayName))
-                            .annotation(position: .trailing) {
-                                Text("\(data.count)")
+                                .chartYScale(domain: .automatic(includesZero: false))
+                                .frame(height: 150)
+                                .padding(.horizontal)
+                                
+                                Text("\(source.count) samples")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .padding(.leading)
                             }
-                        }
-                        .frame(height: 200)
-                        
-                        Divider()
-                        
-                        Text("Detailed Source List")
-                            .font(.title2)
-                            .bold()
-                        
-                        ForEach(sourceData) { data in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(data.displayName)
-                                        .font(.headline)
-                                    
-                                    if data.sourceName != data.displayName {
-                                        Text("Source: \(data.sourceName)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    if let manufacturer = data.manufacturer {
-                                        Text("Manufacturer: \(manufacturer)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Text("\(data.count) samples")
-                                        .font(.subheadline)
-                                        .bold()
-                                        .padding(.top, 2)
-                                }
-                                Spacer()
-                                Image(systemName: "sensor.tag.radiowaves.forward")
-                                    .font(.title2)
-                                    .foregroundColor(.blue)
-                            }
-                            .padding()
-                            .background(Color(UIColor.secondarySystemBackground))
-                            .cornerRadius(10)
+                            .padding(.bottom)
                         }
                     }
-                    .padding()
                 }
             }
         }
         .navigationTitle("Source Analysis")
         .task {
+            // Load data asynchronously
             healthManager.fetchHeartRateSamples(for: workout) { data in
                 self.sourceData = data
                 self.isLoading = false
@@ -144,5 +73,36 @@ struct SourceAnalysisView: View {
     
     var totalSamples: Int {
         sourceData.reduce(0) { $0 + $1.count }
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .abbreviated
+        return formatter.string(from: duration) ?? ""
+    }
+}
+
+struct SummaryCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(.blue)
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Text(value)
+                .font(.title2)
+                .bold()
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(10)
     }
 }

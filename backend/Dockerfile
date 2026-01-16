@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies (needed for some python packages)
-RUN apt-get update && apt-get install -y gcc
+RUN apt-get update && apt-get install -y gcc git
 
 # Install python dependencies
 COPY requirements.txt .
